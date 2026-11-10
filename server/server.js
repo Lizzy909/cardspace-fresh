@@ -405,8 +405,6 @@ export default app;
    LOCAL DEVELOPMENT SERVER
 ================================= */
 
-if (process.env.NODE_ENV !== "production") {
-  app.listen(PORT, () => {
-    console.log(`Cardspace API running on port ${PORT}`);
-  });
-}
+app.listen(PORT, () => {
+  console.log(`Cardspace API running on port ${PORT}`);
+});
