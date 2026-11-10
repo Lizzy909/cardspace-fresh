@@ -25,8 +25,6 @@ export default function Hero() {
 
         <p className="hero-description">
           Submit your gift card details quickly and easily.
-          Our team will receive your request, and you can
-          follow up using your email address.
         </p>
 
         <div className="hero-actions">
@@ -60,16 +58,6 @@ export default function Hero() {
               <p>Your request is sent directly to our team.</p>
             </div>
           </div>
-
-          <div className="benefit-item">
-            <div className="benefit-icon">
-              <LockKeyhole size={21} />
-            </div>
-            <div>
-              <strong>Privacy Focused</strong>
-              <p>We don't ask for redeemable card codes or PINs.</p>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -87,7 +75,7 @@ export default function Hero() {
 
           <div className="gift-card-art card-art-middle">
             <div className="art-card-top">
-              <span>CARDSPACE</span>
+              <span>GIFT CARDS</span>
               <Gift size={24} />
             </div>
             <strong>Your Gift Card</strong>

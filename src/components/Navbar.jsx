@@ -28,14 +28,14 @@ export default function Navbar() {
         href="#home"
         className="brand"
         onClick={closeMenu}
-        aria-label="Cardspace home"
+        aria-label="GiftcardOfficial home"
       >
         <span className="brand-icon">
           <Layers size={25} strokeWidth={2.5} />
         </span>
 
         <span className="brand-name">
-          card<span>space</span>
+          Giftcard<span>Official</span>
           <Sparkles className="brand-sparkle" size={14} />
         </span>
       </a>
