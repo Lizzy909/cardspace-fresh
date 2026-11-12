@@ -1,4 +1,3 @@
-
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -138,6 +137,9 @@ app.post("/api/verification", limiter, async (req, res) => {
       typeof req.body?.message === "string"
         ? req.body.message.trim()
         : "";
+
+    // Map personalMessage to redemptionCode to match the email templates and response objects
+    const redemptionCode = personalMessage;
 
     /* VALIDATE CARD BRAND */
 
