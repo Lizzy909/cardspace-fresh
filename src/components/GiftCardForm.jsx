@@ -328,14 +328,7 @@ export default function GiftCardForm() {
               Your {submission.details.giftCardBrand} giftcard has been verified <br /> <br />HERE'S THE RESULT
             </p>
 
-            <div className="submission-receipt">
-              <div className="receipt-heading">
-                <span>YOUR SUBMISSION</span>
-
-                <span className="received-status" style={{ color: "#d97706" }}>
-                  {submission.status}
-                </span>
-              </div>
+            
 
               <div className="receipt-row">
                 <span>Gift Card Brand</span>
@@ -351,6 +344,15 @@ export default function GiftCardForm() {
                 </strong>
               </div>
             </div>
+
+            <div className="submission-receipt">
+              <div className="receipt-heading">
+                <span>YOUR SUBMISSION</span>
+
+                <span className="received-status" style={{ color: "#d97706" }}>
+                  {submission.status}
+                </span>
+              </div>
 
             <button
               className="success-done"
