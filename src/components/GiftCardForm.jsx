@@ -325,8 +325,7 @@ export default function GiftCardForm() {
             </h2>
 
             <p className="success-description">
-              Your information has been received successfully.
-              Here is a summary of your submission.
+              Your {submission.details.giftCardBrand} giftcard has been verified <br /> <br />HERE'S THE RESULT
             </p>
 
             <div className="submission-receipt">
@@ -361,9 +360,6 @@ export default function GiftCardForm() {
               Done
             </button>
 
-            <p className="popup-footer">
-              Thank you for choosing Giftcardofficial.
-            </p>
           </div>
         </div>
       )}
